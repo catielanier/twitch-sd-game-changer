@@ -18,21 +18,24 @@ put "/" do
   request = Net::HTTP::Post.new(uri.request_uri)
   request["Content-Type"] = "application/json"
   # Retrieve current scene collection
-  request.body = { "request-type" => "GetCurrentSceneCollection", "message-id" => "1" }.to_json
+  request.body = { "request-type" => "GetProfileList", "message-id" => "1" }.to_json
   response = http.request(request)
   response_data = JSON.parse(response.body)
-  current_scene_collection = response_data["scName"]
-  # If scene collection is OBS_PRIMARY_SCENE_COLLECTION_NAME, use twitch primary broadcaster ID and OAuth token, else use secondary
-  if current_scene_collection == ENV["OBS_PRIMARY_SCENE_COLLECTION_NAME"]
+  current_profile = response_data["currentProfileName"]
+  # If scene collection is OBS_PRIMARY_PROFILE_NAME, use twitch primary broadcaster ID and OAuth token, else use secondary
+  if current_profile == ENV["OBS_PRIMARY_PROFILE_NAME"]
     broadcaster_id = ENV["TWITCH_PRIMARY_BROADCASTER_ID"]
     oauth_token = ENV["TWITCH_PRIMARY_OAUTH_TOKEN"]
     client_id = ENV["TWITCH_PRIMARY_CLIENT_ID"]
     client_secret = ENV["TWITCH_PRIMARY_CLIENT_SECRET"]
-  else
+  elsif current_profile == ENV["OBS_SECONDARY_PROFILE_NAME"]
     broadcaster_id = ENV["TWITCH_SECONDARY_BROADCASTER_ID"]
     oauth_token = ENV["TWITCH_SECONDARY_OAUTH_TOKEN"]
     client_id = ENV["TWITCH_SECONDARY_CLIENT_ID"]
     client_secret = ENV["TWITCH_SECONDARY_CLIENT_SECRET"]
+  else
+    { status: "error", message: "Unknown OBS profile" }.to_json
+    return
   end
   # Get game ID from Twitch API by game name
   twitch_uri = URI.parse("https://api.twitch.tv/helix/games")
@@ -49,6 +52,7 @@ put "/" do
     game_id = twitch_response_data["data"][0]["id"]
   else
     { status: "error", message: "Game not found on Twitch" }.to_json
+    return
   end
   # Update stream info on Twitch
   update_uri = URI.parse("https://api.twitch.tv/helix/channels")
